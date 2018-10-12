@@ -178,12 +178,30 @@ class TrtEngine:
 
 if __name__ == "__main__":
     import os.path
-    model = KerasModel(
-        file_path=os.path.join(os.path.dirname(__file__), "models/dncnn.h5"),
-        input_shape=(1, 512, 512),
-    )
-    inference_engine = TrtEngine(model, max_batch_size=16)
+    import time
+    file_path = os.path.join(os.path.dirname(__file__), "nvidia-dncnn.h5")
+    #data = np.load(os.path.join(os.path.dirname(__file__), 'data.npy'))  # (200, 180, 180)
+    data = np.load(os.path.join(os.path.dirname(__file__), 'dukedata.npy'))  # (420, 512, 512)
 
-    data = np.load(os.path.join(os.path.dirname(__file__), 'data.npy'))
-    prediction = inference_engine.infer(data)
-    print(prediction)
+    trt_or_keras = 0
+    if trt_or_keras == 0:
+        model = KerasModel(
+            file_path=file_path,
+            input_shape=(1, 512, 512),  # or (1, 180, 180)
+        )
+        inference_engine = TrtEngine(model, max_batch_size=16)
+
+        t1 = time.time()
+        prediction = inference_engine.infer(data[:, np.newaxis, ...])
+        t2 = time.time()
+        diff = t2 - t1
+        print('TRT prediction time: {}'.format(diff))
+    else:
+        K.set_learning_phase(0)
+        model = load_model(file_path, compile=False)
+        K.set_learning_phase(0)
+        t1 = time.time()
+        model.predict(data[:, np.newaxis, ...], batch_size=16, verbose=1)
+        t2 = time.time()
+        diff = t2 - t1
+        print('Keras prediction time: {}'.format(diff))
